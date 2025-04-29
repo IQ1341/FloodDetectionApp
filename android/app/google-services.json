@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "203483035763",
+    "firebase_url": "https://floodwatch-cabc5-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "floodwatch-cabc5",
+    "storage_bucket": "floodwatch-cabc5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:203483035763:android:bbfc19da7a54fd8c35d206",
+        "android_client_info": {
+          "package_name": "com.example.pawrecue"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDCtvZMg-Ma0BCjG3eEpEEgs19EJVBTx90"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
