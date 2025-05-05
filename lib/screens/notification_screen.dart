@@ -1,49 +1,15 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 
 class NotificationScreen extends StatelessWidget {
   const NotificationScreen({super.key});
 
-  final List<Map<String, dynamic>> notifications = const [
-    {
-      "title": "Peringatan Banjir",
-      "message": "Ketinggian air melebihi ambang batas!",
-      "time": "29 Apr 2025, 22:45",
-      "level": "BAHAYA",
-      "color": Colors.red
-    },
-    {
-      "title": "Status WASPADA",
-      "message": "Ketinggian air mendekati batas waspada.",
-      "time": "29 Apr 2025, 20:15",
-      "level": "WASPADA",
-      "color": Colors.orange
-    },
-    {
-      "title": "Status Normal",
-      "message": "Ketinggian air dalam batas aman.",
-      "time": "29 Apr 2025, 18:30",
-      "level": "AMAN",
-      "color": Color(0xFF00C2FF)
-    },
-    {
-      "title": "Status Normal",
-      "message": "Ketinggian air dalam batas aman.",
-      "time": "29 Apr 2025, 18:30",
-      "level": "AMAN",
-      "color": Color(0xFF00C2FF)
-    },
-    {
-      "title": "Status Normal",
-      "message": "Ketinggian air dalam batas aman.",
-      "time": "29 Apr 2025, 18:30",
-      "level": "AMAN",
-      "color": Color(0xFF00C2FF)
-    },
-  ];
-
   @override
   Widget build(BuildContext context) {
+    // Ambil nama sungai yang login (misalnya dari Firebase Auth)
+    String namaSungai = "sungai_bedadung"; // Ganti dengan nama sungai dari akun yang login
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -53,67 +19,156 @@ class NotificationScreen extends StatelessWidget {
         iconTheme: const IconThemeData(color: Colors.black),
         elevation: 0,
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: notifications.length,
-        itemBuilder: (context, index) {
-          final notif = notifications[index];
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: notif['color'].withOpacity(0.25)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: notif['color'].withOpacity(0.1),
-                    shape: BoxShape.circle,
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection(namaSungai.toLowerCase().replaceAll(" ", "_"))
+            .doc("notifikasi")
+            .collection("data")
+            .orderBy("timestamp", descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text("Tidak ada notifikasi."));
+          }
+
+          final notifications = snapshot.data!.docs.map((doc) {
+            var data = doc.data() as Map<String, dynamic>;
+
+            return {
+              'id': doc.id, // Menambahkan id untuk identifikasi dokumen
+              'title': data['title'] ?? 'Tanpa Judul',
+              'message': data['message'] ?? 'Pesan tidak tersedia.',
+              'time': formatTimestamp(data['timestamp'] ?? Timestamp.now()),
+              'level': data['level'] ?? 'AMAN',
+              'color': getNotificationColor(data['level'] ?? 'AMAN'),
+            };
+          }).toList();
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: notifications.length,
+            itemBuilder: (context, index) {
+              final notif = notifications[index];
+              return Dismissible(
+                key: Key(notif['id']), // Menggunakan ID sebagai key
+                direction: DismissDirection.endToStart, // Menyebabkan geseran dari kanan ke kiri
+                onDismissed: (direction) {
+                  // Menghapus notifikasi dari Firestore
+                  _deleteNotification(notif['id'], namaSungai);
+                  // Menampilkan snackbar setelah dihapus
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text("${notif['title']} dihapus"),
+                  ));
+                },
+                background: Container(
+                  color: Colors.red,
+                  child: const Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: Icon(Icons.delete, color: Colors.white),
+                    ),
                   ),
-                  child: Icon(Icons.notifications, color: notif['color'], size: 24),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: notif['color'].withOpacity(0.25)),
+                  ),
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              notif['title'],
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: notif['color'],
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            notif['time'],
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: notif['color'].withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.notifications, color: notif['color'], size: 24),
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        notif['message'],
-                        style: const TextStyle(color: Colors.black87, fontSize: 14),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    notif['title'],
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: notif['color'],
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  notif['time'],
+                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              notif['message'],
+                              style: const TextStyle(color: Colors.black87, fontSize: 14),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                )
-              ],
-            ),
+                ),
+              );
+            },
           );
         },
       ),
     );
+  }
+
+  String formatTimestamp(Timestamp timestamp) {
+    final date = timestamp.toDate();
+    final monthNames = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+
+    return "${date.day} ${monthNames[date.month - 1]}, ${date.year}, ${date.hour}:${date.minute}";
+  }
+
+  Color getNotificationColor(String level) {
+    switch (level) {
+      case "BAHAYA":
+        return Colors.red;
+      case "WASPADA":
+        return Colors.orange;
+      default:
+        return const Color(0xFF00C2FF);
+    }
+  }
+
+  // Fungsi untuk menghapus notifikasi
+  Future<void> _deleteNotification(String notifId, String namaSungai) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection(namaSungai.toLowerCase().replaceAll(" ", "_"))
+          .doc("notifikasi")
+          .collection("data")
+          .doc(notifId) // Menggunakan ID untuk menghapus dokumen yang sesuai
+          .delete();
+      print("Notifikasi berhasil dihapus.");
+    } catch (e) {
+      print("Gagal menghapus notifikasi: $e");
+    }
   }
 }
