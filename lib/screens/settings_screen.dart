@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 
@@ -9,10 +11,74 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  double threshold = 150; // Default value
+  double threshold = 150;
+  bool isLoading = true;
+  String? namaSungai;
+
+  @override
+  void initState() {
+    super.initState();
+    getUserSungai();
+  }
+
+  Future<void> getUserSungai() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final doc = await FirebaseFirestore.instance.collection("users").doc(uid).get();
+    if (doc.exists && doc.data()!.containsKey("nama_sungai")) {
+      namaSungai = doc["nama_sungai"];
+      fetchThreshold();
+    }
+  }
+
+  void fetchThreshold() async {
+    final docRef = FirebaseFirestore.instance
+        .collection(namaSungai!.toLowerCase().replaceAll(" ", "_"))
+        .doc("threshold");
+
+    final doc = await docRef.get();
+
+    if (doc.exists && doc.data()!.containsKey("nilai")) {
+      setState(() {
+        threshold = (doc["nilai"] as num).toDouble();
+      });
+    } else {
+      // Jika belum ada, simpan nilai default
+      await docRef.set({"nilai": threshold});
+    }
+
+    if (mounted) setState(() => isLoading = false);
+  }
+
+  void saveThreshold() async {
+    if (namaSungai == null) return;
+
+    await FirebaseFirestore.instance
+        .collection(namaSungai!.toLowerCase().replaceAll(" ", "_"))
+        .doc("threshold")
+        .set({"nilai": threshold});
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Ambang batas berhasil disimpan!")),
+    );
+  }
+
+  void logout() async {
+    await FirebaseAuth.instance.signOut();
+    if (mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -25,16 +91,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         children: [
-          _buildSectionTitle("Pengaturan Umum"),
+          _buildSectionTitle("Ambang Batas"),
           _buildThresholdCard(),
           const SizedBox(height: 32),
-
-          _buildSectionTitle("Akun Saya"),
-          _buildAccountInfo(),
-          const SizedBox(height: 12),
-          _buildChangePassword(),
-          const SizedBox(height: 12),
-          _buildLogout(),
+          _buildSectionTitle("Tentang Aplikasi"),
+          _buildAboutCard(),
+          const SizedBox(height: 32),
+          _buildLogoutButton(),
         ],
       ),
     );
@@ -61,15 +124,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Ambang Batas Ketinggian Air",
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-          ),
+          const Text("Ambang Batas Ketinggian Air", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
           const SizedBox(height: 12),
-          Text(
-            "${threshold.toInt()} cm",
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          Text("${threshold.toInt()} cm", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           Slider(
             value: threshold,
             min: 50,
@@ -88,21 +145,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Align(
             alignment: Alignment.centerRight,
             child: ElevatedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Threshold berhasil disimpan!")),
-                );
-                // TODO: Save to Firestore or local storage
-              },
+              onPressed: saveThreshold,
+              icon: const Icon(Icons.save, size: 18),
+              label: const Text("Simpan", style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              icon: const Icon(Icons.save, size: 18),
-              label: const Text("Simpan", style: TextStyle(color: Colors.white)),
             ),
           ),
         ],
@@ -110,51 +160,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildAccountInfo() {
-    return ListTile(
-      tileColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
+  Widget _buildAboutCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(16),
       ),
-      leading: const Icon(Icons.person, color: AppColors.primary),
-      title: const Text("Nama Pengguna"),
-      subtitle: const Text("admin@example.com"),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Versi Aplikasi", style: TextStyle(fontWeight: FontWeight.w500)),
+          SizedBox(height: 6),
+          Text("1.0.0", style: TextStyle(color: Colors.black54)),
+          SizedBox(height: 12),
+          Text("Pengembang", style: TextStyle(fontWeight: FontWeight.w500)),
+          SizedBox(height: 6),
+          Text("Tim Sungai Bedadung", style: TextStyle(color: Colors.black54)),
+        ],
+      ),
     );
   }
 
-  Widget _buildChangePassword() {
-    return ListTile(
-      tileColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
+  Widget _buildLogoutButton() {
+    return ElevatedButton.icon(
+      onPressed: logout,
+      icon: const Icon(Icons.logout, color: Colors.white),
+      label: const Text("Keluar", style: TextStyle(color: Colors.white)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.red,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      leading: const Icon(Icons.lock_outline, color: AppColors.primary),
-      title: const Text("Ubah Password"),
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Fitur belum tersedia.")),
-        );
-      },
-    );
-  }
-
-  Widget _buildLogout() {
-    return ListTile(
-      tileColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade300),
-      ),
-      leading: const Icon(Icons.logout, color: Colors.red),
-      title: const Text("Keluar"),
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Berhasil logout")),
-        );
-        // TODO: Implement actual logout
-      },
     );
   }
 }

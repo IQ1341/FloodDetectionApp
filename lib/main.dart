@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/register_screen.dart';
 import 'screens/main_screen.dart';
 import 'utils/constants.dart'; // <-- Import constants
 import 'package:intl/date_symbol_data_local.dart';
@@ -36,7 +35,6 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),
-        '/register': (context) => const RegisterScreen(),
         '/dashboard': (context) => const MainScreen(),
       },
     );

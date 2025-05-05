@@ -1,4 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
 import '../utils/constants.dart';
 
 class LocationScreen extends StatefulWidget {
@@ -9,77 +12,141 @@ class LocationScreen extends StatefulWidget {
 }
 
 class _LocationScreenState extends State<LocationScreen> {
-  String selectedFilter = "Semua";
-  final List<String> filters = ["Semua", "AMAN", "WASPADA", "BAHAYA"];
+  String? namaSungai;
+  DateTime? startDate;
+  DateTime? endDate;
+  List<Map<String, dynamic>> history = [];
 
-  final List<Map<String, dynamic>> history = [
-    {"waktu": "29 Apr 2025, 22:45", "level": "200 cm", "status": "BAHAYA", "color": Colors.red},
-    {"waktu": "29 Apr 2025, 21:45", "level": "180 cm", "status": "WASPADA", "color": Colors.orange},
-    {"waktu": "29 Apr 2025, 20:45", "level": "120 cm", "status": "AMAN", "color": AppColors.primary},
-  ];
+  LatLng? location;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (namaSungai == null) {
+      namaSungai = ModalRoute.of(context)?.settings.arguments as String?;
+      if (namaSungai != null) {
+        fetchHistory();
+        fetchLocation();
+      }
+    }
+  }
+
+  void fetchHistory() {
+    final sungaiKey = namaSungai!.toLowerCase().replaceAll(" ", "_");
+    FirebaseFirestore.instance
+        .collection(sungaiKey)
+        .doc('riwayat')
+        .collection('data')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .listen((snapshot) {
+      final List<Map<String, dynamic>> docs = snapshot.docs.map((doc) {
+        final data = doc.data();
+        final date = (data['timestamp'] as Timestamp).toDate();
+        final value = (data['value'] as num).toDouble();
+        final status = value >= 150
+            ? "BAHAYA"
+            : value >= 100
+                ? "WASPADA"
+                : "AMAN";
+        final color = status == "BAHAYA"
+            ? Colors.red
+            : status == "WASPADA"
+                ? Colors.orange
+                : AppColors.primary;
+        return {
+          "waktu": date,
+          "level": "${value.toStringAsFixed(1)} cm",
+          "status": status,
+          "color": color,
+        };
+      }).toList();
+
+      setState(() {
+        history = docs;
+      });
+    });
+  }
+
+  void fetchLocation() async {
+    final sungaiKey = namaSungai!.toLowerCase().replaceAll(" ", "_");
+    final snapshot = await FirebaseFirestore.instance
+        .collection(sungaiKey)
+        .doc('lokasi')
+        .get();
+
+    if (snapshot.exists) {
+      final data = snapshot.data();
+      final lat = (data?['latitude'] as num?)?.toDouble();
+      final lng = (data?['longitude'] as num?)?.toDouble();
+
+      if (lat != null && lng != null) {
+        setState(() {
+          location = LatLng(lat, lng);
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filteredHistory = selectedFilter == "Semua"
-        ? history
-        : history.where((item) => item['status'] == selectedFilter).toList();
+    final filteredHistory = history.where((item) {
+      final itemDate = item['waktu'] as DateTime;
+      if (startDate != null && itemDate.isBefore(startDate!)) return false;
+      if (endDate != null && itemDate.isAfter(endDate!)) return false;
+      return true;
+    }).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text("Lokasi & Riwayat", style: TextStyle(color: Colors.black)),
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.black),
+      ),
       body: Column(
         children: [
-          // CONTAINER MAP DUMMY
+          // PETA LOKASI
           Padding(
-            padding: const EdgeInsets.only(top: 32, left: 16, right: 16, bottom: 16),
+            padding: const EdgeInsets.all(16),
             child: Container(
-              height: 250,
-              width: double.infinity,
+              height: 240,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.grey.shade400),
               ),
-              child: const Center(
-                child: Text(
-                  "Peta Lokasi Alat",
-                  style: TextStyle(fontSize: 16, color: Colors.black54),
-                ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: location != null
+                    ? GoogleMap(
+                        initialCameraPosition: CameraPosition(
+                          target: location!,
+                          zoom: 16,
+                        ),
+                        markers: {
+                          Marker(
+                            markerId: const MarkerId("lokasi"),
+                            position: location!,
+                            infoWindow: InfoWindow(title: namaSungai),
+                          )
+                        },
+                      )
+                    : const Center(child: Text("Memuat peta lokasi...", style: TextStyle(fontSize: 16))),
               ),
             ),
           ),
 
-          // FILTER
-          SizedBox(
-            height: 40,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: filters.length,
-              itemBuilder: (context, index) {
-                final isSelected = selectedFilter == filters[index];
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedFilter = filters[index];
-                    });
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primary : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      filters[index],
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black54,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                );
-              },
+          // FILTER TANGGAL
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(child: _buildDatePicker("Dari", startDate, (date) => setState(() => startDate = date))),
+                const SizedBox(width: 12),
+                Expanded(child: _buildDatePicker("Sampai", endDate, (date) => setState(() => endDate = date))),
+              ],
             ),
           ),
 
@@ -87,66 +154,92 @@ class _LocationScreenState extends State<LocationScreen> {
             padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                "Riwayat Ketinggian Air",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+              child: Text("Riwayat Ketinggian Air", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
 
-          // RIWAYAT DUMMY
-Expanded(
-  child: ListView.builder(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    itemCount: filteredHistory.length,
-    itemBuilder: (context, index) {
-      final item = filteredHistory[index];
-      return Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+          // LIST RIWAYAT
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: filteredHistory.length,
+              itemBuilder: (context, index) {
+                final item = filteredHistory[index];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: item['color'].withOpacity(0.15),
+                        child: Icon(Icons.water_drop, color: item['color']),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(DateFormat('yyyy-MM-dd HH:mm').format(item['waktu']),
+                                style: const TextStyle(fontSize: 13, color: Colors.black54)),
+                            const SizedBox(height: 4),
+                            Text(item['level'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: item['color'].withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(item['status'], style: TextStyle(color: item['color'], fontWeight: FontWeight.bold)),
+                      )
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDatePicker(String label, DateTime? value, Function(DateTime) onSelected) {
+    return GestureDetector(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: value ?? DateTime.now(),
+          firstDate: DateTime(2023),
+          lastDate: DateTime(2100),
+        );
+        if (picked != null) onSelected(picked);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: item['color'].withOpacity(0.15),
-              child: Icon(Icons.water_drop, color: item['color']),
-            ),
-            const SizedBox(width: 12),
-
+            const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.primary),
+            const SizedBox(width: 8),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item['waktu'], style: const TextStyle(fontSize: 13, color: Colors.black54)),
-                  const SizedBox(height: 4),
-                  Text(item['level'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ],
+              child: Text(
+                value != null ? DateFormat('dd MMM yyyy').format(value) : label,
+                style: TextStyle(fontSize: 13, color: value != null ? Colors.black87 : Colors.grey, fontWeight: FontWeight.w500),
               ),
             ),
-
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: item['color'].withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                item['status'],
-                style: TextStyle(color: item['color'], fontWeight: FontWeight.bold),
-              ),
-            )
           ],
         ),
-      );
-    },
-  ),
-),
-
-        ],
       ),
     );
   }

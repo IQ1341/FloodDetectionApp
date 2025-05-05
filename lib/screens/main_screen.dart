@@ -12,12 +12,12 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 0;
+  int _currentIndex = 1; // Monitoring di tengah
 
-  final List<Widget> _screens = [
-    DashboardScreen(),
+  final List<Widget> _screens = const [
     LocationScreen(),
-    const SettingsScreen(),
+    DashboardScreen(),
+    SettingsScreen(),
   ];
 
   void onTabTapped(int index) {
