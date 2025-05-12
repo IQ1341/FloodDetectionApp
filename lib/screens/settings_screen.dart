@@ -1,6 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/constants.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -12,6 +13,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   double threshold = 150;
+  double kalibrasi = 0;
   bool isLoading = true;
   String? namaSungai;
 
@@ -28,41 +30,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final doc = await FirebaseFirestore.instance.collection("users").doc(uid).get();
     if (doc.exists && doc.data()!.containsKey("nama_sungai")) {
       namaSungai = doc["nama_sungai"];
-      fetchThreshold();
+      await fetchThreshold();
+      await fetchKalibrasi();
     }
-  }
-
-  void fetchThreshold() async {
-    final docRef = FirebaseFirestore.instance
-        .collection(namaSungai!.toLowerCase().replaceAll(" ", "_"))
-        .doc("threshold");
-
-    final doc = await docRef.get();
-
-    if (doc.exists && doc.data()!.containsKey("nilai")) {
-      setState(() {
-        threshold = (doc["nilai"] as num).toDouble();
-      });
-    } else {
-      // Jika belum ada, simpan nilai default
-      await docRef.set({"nilai": threshold});
-    }
-
     if (mounted) setState(() => isLoading = false);
   }
 
-  void saveThreshold() async {
+    Future<void> fetchKalibrasi() async {
+    final db = FirebaseDatabase.instance.ref();
+    final path = '${namaSungai!.toLowerCase().replaceAll(" ", "_")}/kalibrasi/tinggiSensor';
+
+    final snapshot = await db.child(path).get();
+    if (snapshot.exists) {
+      kalibrasi = (snapshot.value as num).toDouble();
+    } else {
+      await db.child(path).set(kalibrasi);
+    }
+  }
+
+  Future<void> fetchThreshold() async {
+    final db = FirebaseDatabase.instance.ref();
+    final path = '${namaSungai!.toLowerCase().replaceAll(" ", "_")}/threshold/nilai';
+
+    final snapshot = await db.child(path).get();
+    if (snapshot.exists) {
+      threshold = (snapshot.value as num).toDouble();
+    } else {
+      await db.child(path).set(threshold);
+    }
+  }
+
+
+  Future<void> saveKalibrasi() async {
     if (namaSungai == null) return;
 
-    await FirebaseFirestore.instance
-        .collection(namaSungai!.toLowerCase().replaceAll(" ", "_"))
-        .doc("threshold")
-        .set({"nilai": threshold});
+    final db = FirebaseDatabase.instance.ref();
+    final path = '${namaSungai!.toLowerCase().replaceAll(" ", "_")}/kalibrasi/tinggiSensor';
+    await db.child(path).set(kalibrasi);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Kalibrasi berhasil disimpan!")),
+    );
+  }
+
+  Future<void> saveThreshold() async {
+    if (namaSungai == null) return;
+
+    final db = FirebaseDatabase.instance.ref();
+    final path = '${namaSungai!.toLowerCase().replaceAll(" ", "_")}/threshold/nilai';
+    await db.child(path).set(threshold);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Ambang batas berhasil disimpan!")),
     );
   }
+
+
 
   void logout() async {
     await FirebaseAuth.instance.signOut();
@@ -91,12 +114,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         children: [
-          _buildSectionTitle("Ambang Batas"),
+          _buildSectionTitle("Kalibrasi"),
+          _buildKalibrasiCard(),
+          const SizedBox(height: 32),
+          _buildSectionTitle("Threshold"),
           _buildThresholdCard(),
-          const SizedBox(height: 32),
-          _buildSectionTitle("Tentang Aplikasi"),
-          _buildAboutCard(),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           _buildLogoutButton(),
         ],
       ),
@@ -113,18 +136,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildThresholdCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
+    Widget _buildKalibrasiCard() {
+    return _styledCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Ambang Batas Ketinggian Air", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          const Text("Kalibrasi ketinggian Air", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 12),
+          Text("${kalibrasi.toInt()} cm", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Slider(
+            value: kalibrasi,
+            min: 0,
+            max: 800,
+            divisions: 20,
+            label: "${kalibrasi.toInt()} cm",
+            onChanged: (value) => setState(() => kalibrasi = value),
+            activeColor: Colors.teal,
+            inactiveColor: Colors.teal.withOpacity(0.3),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              onPressed: saveKalibrasi,
+              icon: const Icon(Icons.tune, size: 18),
+              label: const Text("Simpan", style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+  Widget _buildThresholdCard() {
+    return _styledCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Threshold Ketinggian Air", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
           const SizedBox(height: 12),
           Text("${threshold.toInt()} cm", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           Slider(
@@ -133,11 +189,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             max: 300,
             divisions: 25,
             label: "${threshold.toInt()} cm",
-            onChanged: (value) {
-              setState(() {
-                threshold = value;
-              });
-            },
+            onChanged: (value) => setState(() => threshold = value),
             activeColor: AppColors.primary,
             inactiveColor: AppColors.primary.withOpacity(0.3),
           ),
@@ -160,28 +212,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildAboutCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Versi Aplikasi", style: TextStyle(fontWeight: FontWeight.w500)),
-          SizedBox(height: 6),
-          Text("1.0.0", style: TextStyle(color: Colors.black54)),
-          SizedBox(height: 12),
-          Text("Pengembang", style: TextStyle(fontWeight: FontWeight.w500)),
-          SizedBox(height: 6),
-          Text("Tim Sungai Bedadung", style: TextStyle(color: Colors.black54)),
-        ],
-      ),
-    );
-  }
 
   Widget _buildLogoutButton() {
     return ElevatedButton.icon(
@@ -193,6 +223,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
+    );
+  }
+
+  Widget _styledCard({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }

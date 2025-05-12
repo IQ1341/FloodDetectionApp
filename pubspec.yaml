@@ -47,6 +47,9 @@ dependencies:
   shared_preferences: ^2.5.3
   intl: ^0.20.2
   firebase_database: ^11.3.5
+  csv: ^6.0.0
+  path_provider: ^2.1.5
+  share_plus: ^11.0.0
 
 dev_dependencies:
   flutter_test:

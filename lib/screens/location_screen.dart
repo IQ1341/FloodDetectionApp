@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:csv/csv.dart';
 import '../utils/constants.dart';
 
 class LocationScreen extends StatefulWidget {
@@ -88,6 +91,35 @@ class _LocationScreenState extends State<LocationScreen> {
     }
   }
 
+  // Fungsi untuk mengekspor data yang sudah difilter ke CSV
+  Future<void> exportCSV() async {
+    final List<List<dynamic>> csvData = [
+      ['Waktu', 'Ketinggian (cm)', 'Status'],
+      // Menggunakan filteredHistory yang sudah difilter berdasarkan tanggal
+      ...history.where((item) {
+        final itemDate = item['waktu'] as DateTime;
+        if (startDate != null && itemDate.isBefore(startDate!)) return false;
+        if (endDate != null && itemDate.isAfter(endDate!)) return false;
+        return true;
+      }).map((item) => [
+            DateFormat('yyyy-MM-dd HH:mm').format(item['waktu']),
+            item['level'],
+            item['status'],
+          ])
+    ];
+
+    final String csv = const ListToCsvConverter().convert(csvData);
+    final dir = await getExternalStorageDirectory();
+    final path = "${dir!.path}/${namaSungai}_riwayat.csv";
+
+    final file = File(path);
+    await file.writeAsString(csv);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Berhasil diekspor ke: $path")),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredHistory = history.where((item) {
@@ -146,10 +178,14 @@ class _LocationScreenState extends State<LocationScreen> {
                 Expanded(child: _buildDatePicker("Dari", startDate, (date) => setState(() => startDate = date))),
                 const SizedBox(width: 12),
                 Expanded(child: _buildDatePicker("Sampai", endDate, (date) => setState(() => endDate = date))),
+                IconButton(
+                  icon: const Icon(Icons.download, color: AppColors.primary),
+                  tooltip: "Export CSV",
+                  onPressed: exportCSV,
+                ),
               ],
             ),
           ),
-
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
             child: Align(
