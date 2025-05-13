@@ -1,21 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
-import 'utils/constants.dart'; // <-- Import constants
-import 'package:intl/date_symbol_data_local.dart';
-
+import 'utils/constants.dart';
+import 'utils/notification_service.dart'; // Import file notification_service
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id_ID', null);
   await Firebase.initializeApp();
+
+  // Setup background notification handler
+  FirebaseMessaging.onBackgroundMessage(NotificationService.backgroundHandler);
+
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    NotificationService.initializeFCM(); // Inisialisasi FCM dan kirim token
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +45,7 @@ class MyApp extends StatelessWidget {
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
         ),
-        fontFamily: 'Poppins', // Pastikan Poppins di pubspec.yaml
+        fontFamily: 'Poppins',
       ),
       debugShowCheckedModeBanner: false,
       initialRoute: '/',
