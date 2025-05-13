@@ -18,7 +18,7 @@ class SplashScreen extends StatelessWidget {
             Icon(Icons.water, size: 100, color: Colors.white),
             SizedBox(height: 20),
             Text(
-              "Early Flood Warning",
+              "Flood Detection",
               style: TextStyle(color: Colors.white, fontSize: 24),
             ),
           ],
