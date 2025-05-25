@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
+import 'package:awesome_dialog/awesome_dialog.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,26 +31,40 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       final uid = credential.user!.uid;
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
       if (userDoc.exists && userDoc.data()!.containsKey('nama_sungai')) {
         final namaSungai = userDoc['nama_sungai'];
 
-        // Kirim nama sungai ke dashboard
-        Navigator.pushReplacementNamed(context, '/dashboard', arguments: namaSungai);
+        // Langsung pindah halaman tanpa alert
+        Navigator.pushReplacementNamed(context, '/dashboard',
+            arguments: namaSungai);
       } else {
-        setState(() {
-          errorMessage = 'Akun tidak memiliki data sungai.';
-        });
+        AwesomeDialog(
+          context: context,
+          dialogType: DialogType.warning,
+          animType: AnimType.leftSlide,
+          title: 'Akun Tidak Valid',
+          desc: 'Akun tidak memiliki data sungai.',
+          btnOkOnPress: () {},
+        ).show();
       }
     } on FirebaseAuthException catch (e) {
-      setState(() {
-        errorMessage = e.message ?? 'Gagal login';
-      });
+      AwesomeDialog(
+        context: context,
+        dialogType: DialogType.error,
+        animType: AnimType.scale,
+        title: 'Gagal Login',
+        desc: e.message ?? 'Terjadi kesalahan saat login.',
+        btnOkOnPress: () {},
+      ).show();
     } finally {
       setState(() => isLoading = false);
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {

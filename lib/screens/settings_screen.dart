@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/constants.dart';
+import 'package:awesome_dialog/awesome_dialog.dart';
+
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -36,7 +38,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) setState(() => isLoading = false);
   }
 
-    Future<void> fetchKalibrasi() async {
+  Future<void> fetchKalibrasi() async {
     final db = FirebaseDatabase.instance.ref();
     final path = '${namaSungai!.toLowerCase().replaceAll(" ", "_")}/kalibrasi/tinggiSensor';
 
@@ -60,31 +62,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+Future<void> saveKalibrasi() async {
+  if (namaSungai == null) return;
 
-  Future<void> saveKalibrasi() async {
-    if (namaSungai == null) return;
+  final db = FirebaseDatabase.instance.ref();
+  final path = '${namaSungai!.toLowerCase().replaceAll(" ", "_")}/kalibrasi/tinggiSensor';
+  await db.child(path).set(kalibrasi);
 
-    final db = FirebaseDatabase.instance.ref();
-    final path = '${namaSungai!.toLowerCase().replaceAll(" ", "_")}/kalibrasi/tinggiSensor';
-    await db.child(path).set(kalibrasi);
+  AwesomeDialog(
+    context: context,
+    dialogType: DialogType.success,
+    animType: AnimType.bottomSlide,
+    title: 'Kalibrasi Tersimpan',
+    desc: 'Kalibrasi berhasil disimpan!',
+    btnOkOnPress: () {},
+    btnOkColor: Colors.teal,
+  ).show();
+}
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Kalibrasi berhasil disimpan!")),
-    );
-  }
 
-  Future<void> saveThreshold() async {
-    if (namaSungai == null) return;
+Future<void> saveThreshold() async {
+  if (namaSungai == null) return;
 
-    final db = FirebaseDatabase.instance.ref();
-    final path = '${namaSungai!.toLowerCase().replaceAll(" ", "_")}/threshold/nilai';
-    await db.child(path).set(threshold);
+  final db = FirebaseDatabase.instance.ref();
+  final path = '${namaSungai!.toLowerCase().replaceAll(" ", "_")}/threshold/nilai';
+  await db.child(path).set(threshold);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Ambang batas berhasil disimpan!")),
-    );
-  }
-
+  AwesomeDialog(
+    context: context,
+    dialogType: DialogType.success,
+    animType: AnimType.rightSlide,
+    title: 'Threshold Disimpan',
+    desc: 'Ambang batas berhasil disimpan!',
+    btnOkOnPress: () {},
+    btnOkColor: AppColors.primary,
+  ).show();
+}
 
 
   void logout() async {
@@ -136,7 +149,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-    Widget _buildKalibrasiCard() {
+  Widget _buildKalibrasiCard() {
     return _styledCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,8 +160,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Slider(
             value: kalibrasi,
             min: 0,
-            max: 800,
-            divisions: 20,
+            max: 1000,
+            divisions: 1000,
             label: "${kalibrasi.toInt()} cm",
             onChanged: (value) => setState(() => kalibrasi = value),
             activeColor: Colors.teal,
@@ -173,8 +186,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-
-
   Widget _buildThresholdCard() {
     return _styledCard(
       child: Column(
@@ -186,8 +197,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Slider(
             value: threshold,
             min: 50,
-            max: 300,
-            divisions: 25,
+            max: 1000,
+            divisions: 1000,
             label: "${threshold.toInt()} cm",
             onChanged: (value) => setState(() => threshold = value),
             activeColor: AppColors.primary,
@@ -212,7 +223,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-
   Widget _buildLogoutButton() {
     return ElevatedButton.icon(
       onPressed: logout,
@@ -233,7 +243,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             color: Colors.black12,
             blurRadius: 6,

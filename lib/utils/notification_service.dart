@@ -42,7 +42,7 @@ class NotificationService {
   /// Kirim token ke backend
   static Future<void> _kirimTokenKeBackend(String token) async {
     try {
-      final url = Uri.parse("http://192.168.1.10:3000/api/save-token"); // Ganti sesuai server
+      final url = Uri.parse("https://services-flood.vercel.app/api/save-token"); // Ganti sesuai server
 
       final response = await http.post(
         url,

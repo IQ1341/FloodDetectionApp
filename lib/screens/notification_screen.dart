@@ -1,14 +1,62 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class NotificationScreen extends StatelessWidget {
+
+class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
 
   @override
+  State<NotificationScreen> createState() => _NotificationScreenState();
+}
+
+class _NotificationScreenState extends State<NotificationScreen> {
+  String? namaSungai;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    getNamaSungai();
+  }
+
+  Future<void> getNamaSungai() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        final doc =
+            await FirebaseFirestore.instance.collection('users').doc(uid).get();
+        setState(() {
+          namaSungai = doc.data()?['nama_sungai'];
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Gagal mengambil nama sungai: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Ambil nama sungai yang login (misalnya dari Firebase Auth)
-    String namaSungai = "sungai_bedadung"; // Ganti dengan nama sungai dari akun yang login
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (namaSungai == null) {
+      return const Scaffold(
+        body: Center(child: Text("Gagal memuat nama sungai.")),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -21,7 +69,7 @@ class NotificationScreen extends StatelessWidget {
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection(namaSungai.toLowerCase().replaceAll(" ", "_"))
+            .collection(namaSungai!) // Nama koleksi sesuai nama_sungai
             .doc("notifikasi")
             .collection("data")
             .orderBy("timestamp", descending: true)
@@ -39,7 +87,7 @@ class NotificationScreen extends StatelessWidget {
             var data = doc.data() as Map<String, dynamic>;
 
             return {
-              'id': doc.id, // Menambahkan id untuk identifikasi dokumen
+              'id': doc.id,
               'title': data['title'] ?? 'Tanpa Judul',
               'message': data['message'] ?? 'Pesan tidak tersedia.',
               'time': formatTimestamp(data['timestamp'] ?? Timestamp.now()),
@@ -54,12 +102,10 @@ class NotificationScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final notif = notifications[index];
               return Dismissible(
-                key: Key(notif['id']), // Menggunakan ID sebagai key
-                direction: DismissDirection.endToStart, // Menyebabkan geseran dari kanan ke kiri
+                key: Key(notif['id']),
+                direction: DismissDirection.endToStart,
                 onDismissed: (direction) {
-                  // Menghapus notifikasi dari Firestore
-                  _deleteNotification(notif['id'], namaSungai);
-                  // Menampilkan snackbar setelah dihapus
+                  _deleteNotification(notif['id']);
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text("${notif['title']} dihapus"),
                   ));
@@ -157,16 +203,16 @@ class NotificationScreen extends StatelessWidget {
     }
   }
 
-  // Fungsi untuk menghapus notifikasi
-  Future<void> _deleteNotification(String notifId, String namaSungai) async {
+  Future<void> _deleteNotification(String notifId) async {
+    if (namaSungai == null) return;
+
     try {
       await FirebaseFirestore.instance
-          .collection(namaSungai.toLowerCase().replaceAll(" ", "_"))
+          .collection(namaSungai!)
           .doc("notifikasi")
           .collection("data")
-          .doc(notifId) // Menggunakan ID untuk menghapus dokumen yang sesuai
+          .doc(notifId)
           .delete();
-      print("Notifikasi berhasil dihapus.");
     } catch (e) {
       print("Gagal menghapus notifikasi: $e");
     }

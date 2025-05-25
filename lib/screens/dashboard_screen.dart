@@ -15,6 +15,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   String? namaSungai;
+  double maxWaterLevelRealtime = 300; // default
   double currentWaterLevel = 0;
   double maxWaterLevel = 200;
   double thresholdValue = 150;
@@ -35,6 +36,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         fetchRealtimeData();
         listenToThresholdFromRealtimeDB();
         listenToFirestoreHistory();
+        listenMaxYFromRealtimeDB(); // ini yang baru
       }
     }
   }
@@ -76,6 +78,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  void listenMaxYFromRealtimeDB() {
+    final ref = FirebaseDatabase.instance.ref(
+        "${namaSungai!.toLowerCase().replaceAll(" ", "_")}/kalibrasi/tinggiSensor");
+    ref.onValue.listen((event) {
+      final data = event.snapshot.value;
+      if (data != null) {
+        setState(() {
+          maxWaterLevelRealtime = (data as num).toDouble();
+        });
+      }
+    });
+  }
+
+
   void listenToFirestoreHistory() {
     FirebaseFirestore.instance
         .collection(namaSungai!.toLowerCase().replaceAll(" ", "_"))
@@ -98,6 +114,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+
+
+
   String getStatus(double level) {
     if (level < thresholdValue * 0.66) return "Aman";
     if (level < thresholdValue) return "Waspada";
@@ -110,17 +129,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Colors.red;
   }
 
-  List<Map<String, dynamic>> getFilteredData() {
+List<Map<String, dynamic>> getFilteredData() {
     final now = DateTime.now();
     late DateTime from;
+    late DateTime Function(DateTime) groupBy;
+
     if (selectedFilter == "Hari Ini") {
       from = DateTime(now.year, now.month, now.day);
+      groupBy = (dt) => DateTime(dt.year, dt.month, dt.day, dt.hour);
     } else if (selectedFilter == "Minggu") {
       from = now.subtract(const Duration(days: 7));
+      groupBy = (dt) => DateTime(dt.year, dt.month, dt.day);
     } else {
       from = now.subtract(const Duration(days: 30));
+      groupBy = (dt) => DateTime(dt.year, dt.month, dt.day);
     }
-    return waterLevelHistory.where((e) => e['timestamp'].isAfter(from)).toList();
+
+    final filtered =
+        waterLevelHistory.where((e) => e['timestamp'].isAfter(from));
+
+    final Map<DateTime, List<double>> grouped = {};
+    for (var item in filtered) {
+      final timeGroup = groupBy(item['timestamp']);
+      grouped.putIfAbsent(timeGroup, () => []).add(item['value']);
+    }
+
+    final averaged = grouped.entries.map((entry) {
+      final avg = entry.value.reduce((a, b) => a + b) / entry.value.length;
+      return {
+        "timestamp": entry.key,
+        "value": avg,
+      };
+    }).toList();
+
+    averaged.sort((a, b) =>
+        (a['timestamp'] as DateTime).compareTo(b['timestamp'] as DateTime));
+    return averaged;
   }
 
   @override
@@ -375,7 +419,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   key: ValueKey(thresholdValue),
                   LineChartData(
                     minY: 0,
-                    maxY: 300,
+                    maxY: maxWaterLevelRealtime,
                     gridData: FlGridData(show: true),
                     titlesData: FlTitlesData(
                       leftTitles: AxisTitles(
