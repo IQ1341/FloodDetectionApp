@@ -6,8 +6,11 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
+import 'screens/sungai_screen.dart';
+import 'screens/notification_screen.dart'; // ✅ Tambahkan ini
+
 import 'utils/constants.dart';
-import 'utils/notification_service.dart'; // Import file notification_service
+import 'utils/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,7 +34,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    NotificationService.initializeFCM(); // Inisialisasi FCM dan kirim token
+    NotificationService.initializeFCM();
   }
 
   @override
@@ -52,7 +55,18 @@ class _MyAppState extends State<MyApp> {
       routes: {
         '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),
-        '/dashboard': (context) => const MainScreen(),
+        '/pilih-sungai': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+          return SungaiScreen(arguments: args);
+        },
+        '/dashboard': (context) {
+          final sungai = ModalRoute.of(context)!.settings.arguments as String;
+          return MainScreen(namaSungai: sungai);
+        },
+        '/notifikasi': (context) {
+          // final sungai = ModalRoute.of(context)!.settings.arguments as String;
+          return const NotificationScreen(); // Argument diakses lewat ModalRoute di dalam screen
+        },
       },
     );
   }

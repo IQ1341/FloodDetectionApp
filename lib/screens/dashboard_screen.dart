@@ -3,19 +3,21 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+
 import '../utils/constants.dart';
-import '../screens/notification_screen.dart';
+// import '../screens/notification_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final String namaSungai;
+
+  const DashboardScreen({super.key, required this.namaSungai});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  String? namaSungai;
-  double maxWaterLevelRealtime = 300; // default
+  double maxWaterLevelRealtime = 300;
   double currentWaterLevel = 0;
   double maxWaterLevel = 200;
   double thresholdValue = 150;
@@ -28,21 +30,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String selectedFilter = "Hari Ini";
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (namaSungai == null) {
-      namaSungai = ModalRoute.of(context)?.settings.arguments as String?;
-      if (namaSungai != null) {
-        fetchRealtimeData();
-        listenToThresholdFromRealtimeDB();
-        listenToFirestoreHistory();
-        listenMaxYFromRealtimeDB(); // ini yang baru
-      }
-    }
+  void initState() {
+    super.initState();
+    fetchRealtimeData();
+    listenToThresholdFromRealtimeDB();
+    listenMaxYFromRealtimeDB();
+    listenToFirestoreHistory();
   }
 
   void fetchRealtimeData() {
-    final ref = FirebaseDatabase.instance.ref(namaSungai!.toLowerCase().replaceAll(" ", "_"));
+    final ref = FirebaseDatabase.instance
+        .ref(widget.namaSungai.toLowerCase().replaceAll(" ", "_"));
     ref.onValue.listen((event) {
       final data = event.snapshot.value as Map<dynamic, dynamic>;
       setState(() {
@@ -66,8 +64,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void listenToThresholdFromRealtimeDB() {
-    final ref = FirebaseDatabase.instance
-        .ref("${namaSungai!.toLowerCase().replaceAll(" ", "_")}/threshold/nilai");
+    final ref = FirebaseDatabase.instance.ref(
+        "${widget.namaSungai.toLowerCase().replaceAll(" ", "_")}/threshold/nilai");
     ref.onValue.listen((event) {
       final data = event.snapshot.value;
       if (data != null) {
@@ -80,7 +78,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void listenMaxYFromRealtimeDB() {
     final ref = FirebaseDatabase.instance.ref(
-        "${namaSungai!.toLowerCase().replaceAll(" ", "_")}/kalibrasi/tinggiSensor");
+        "${widget.namaSungai.toLowerCase().replaceAll(" ", "_")}/kalibrasi/tinggiSensor");
     ref.onValue.listen((event) {
       final data = event.snapshot.value;
       if (data != null) {
@@ -91,10 +89,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-
   void listenToFirestoreHistory() {
     FirebaseFirestore.instance
-        .collection(namaSungai!.toLowerCase().replaceAll(" ", "_"))
+        .collection(widget.namaSungai.toLowerCase().replaceAll(" ", "_"))
         .doc("riwayat")
         .collection("data")
         .orderBy("timestamp", descending: false)
@@ -114,9 +111,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-
-
-
   String getStatus(double level) {
     if (level < thresholdValue * 0.66) return "Aman";
     if (level < thresholdValue) return "Waspada";
@@ -129,7 +123,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Colors.red;
   }
 
-List<Map<String, dynamic>> getFilteredData() {
+  List<Map<String, dynamic>> getFilteredData() {
     final now = DateTime.now();
     late DateTime from;
     late DateTime Function(DateTime) groupBy;
@@ -145,10 +139,9 @@ List<Map<String, dynamic>> getFilteredData() {
       groupBy = (dt) => DateTime(dt.year, dt.month, dt.day);
     }
 
-    final filtered =
-        waterLevelHistory.where((e) => e['timestamp'].isAfter(from));
-
+    final filtered = waterLevelHistory.where((e) => e['timestamp'].isAfter(from));
     final Map<DateTime, List<double>> grouped = {};
+
     for (var item in filtered) {
       final timeGroup = groupBy(item['timestamp']);
       grouped.putIfAbsent(timeGroup, () => []).add(item['value']);
@@ -162,19 +155,12 @@ List<Map<String, dynamic>> getFilteredData() {
       };
     }).toList();
 
-    averaged.sort((a, b) =>
-        (a['timestamp'] as DateTime).compareTo(b['timestamp'] as DateTime));
+    averaged.sort((a, b) => (a['timestamp'] as DateTime).compareTo(b['timestamp'] as DateTime));
     return averaged;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (namaSungai == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
     final status = getStatus(currentWaterLevel);
     final statusColor = getStatusColor(currentWaterLevel);
     final dateFormatted = DateFormat('EEEE, d MMMM yyyy • HH:mm', 'id_ID').format(DateTime.now());
@@ -227,7 +213,7 @@ List<Map<String, dynamic>> getFilteredData() {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(namaSungai ?? "",
+                Text(widget.namaSungai,
                     style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primary)),
                 const SizedBox(height: 4),
                 Text(dateFormatted, style: const TextStyle(fontSize: 13, color: Colors.grey)),
@@ -236,21 +222,21 @@ List<Map<String, dynamic>> getFilteredData() {
           ),
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
-                .collection(namaSungai!.toLowerCase().replaceAll(" ", "_"))
+                .collection(widget.namaSungai.toLowerCase().replaceAll(" ", "_"))
                 .doc("notifikasi")
                 .collection("data")
                 .snapshots(),
             builder: (context, snapshot) {
-              int notifCount = 0;
-              if (snapshot.hasData) {
-                notifCount = snapshot.data!.docs.length;
-              }
+              int notifCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
 
               return GestureDetector(
                 onTap: () {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const NotificationScreen()));
-                },
+  Navigator.pushNamed(
+    context,
+    '/notifikasi',
+    arguments: widget.namaSungai,
+  );
+},
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -259,22 +245,17 @@ List<Map<String, dynamic>> getFilteredData() {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      const Icon(Icons.notifications_none,
-                          size: 32, color: AppColors.primary),
+                      const Icon(Icons.notifications_none, size: 32, color: AppColors.primary),
                       if (notifCount > 0)
                         Positioned(
                           right: -2,
                           top: -4,
                           child: Container(
                             padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                                color: Colors.red, shape: BoxShape.circle),
+                            decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
                             child: Text(
                               notifCount.toString(),
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ),
@@ -293,13 +274,17 @@ List<Map<String, dynamic>> getFilteredData() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-          color: AppColors.primary, borderRadius: BorderRadius.circular(20)),
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
             child: const Icon(Icons.water, color: Colors.white, size: 48),
           ),
           const SizedBox(width: 24),
@@ -311,10 +296,7 @@ List<Map<String, dynamic>> getFilteredData() {
                     style: TextStyle(fontSize: 14, color: Colors.white70)),
                 const SizedBox(height: 8),
                 Text("${currentWaterLevel.toStringAsFixed(1)} cm",
-                    style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white)),
+                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
               ],
             ),
           ),
@@ -339,20 +321,16 @@ List<Map<String, dynamic>> getFilteredData() {
       child: Row(
         children: [
           CircleAvatar(
-              backgroundColor: color.withOpacity(0.15),
-              child: Icon(icon, color: color)),
+            backgroundColor: color.withOpacity(0.15),
+            child: Icon(icon, color: color),
+          ),
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: const TextStyle(fontSize: 14, color: Colors.black54)),
+              Text(title, style: const TextStyle(fontSize: 14, color: Colors.black54)),
               const SizedBox(height: 4),
-              Text(value,
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: color)),
+              Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
             ],
           ),
         ],
@@ -374,8 +352,7 @@ List<Map<String, dynamic>> getFilteredData() {
             return GestureDetector(
               onTap: () => setState(() => selectedFilter = filter),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 margin: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
                   color: isSelected ? AppColors.primary : Colors.grey[200],
@@ -383,9 +360,9 @@ List<Map<String, dynamic>> getFilteredData() {
                 ),
                 child: Text(filter,
                     style: TextStyle(
-                        color:
-                            isSelected ? Colors.white : Colors.black54,
-                        fontWeight: FontWeight.w500)),
+                      color: isSelected ? Colors.white : Colors.black54,
+                      fontWeight: FontWeight.w500,
+                    )),
               ),
             );
           }).toList(),
@@ -401,7 +378,7 @@ List<Map<String, dynamic>> getFilteredData() {
               BoxShadow(
                   color: Colors.grey.withOpacity(0.25),
                   blurRadius: 12,
-                  offset: const Offset(0, 6))
+                  offset: const Offset(0, 6)),
             ],
           ),
           child: Column(
@@ -428,18 +405,14 @@ List<Map<String, dynamic>> getFilteredData() {
                           interval: 50,
                           getTitlesWidget: (value, _) => Text(
                             value.toInt().toString(),
-                            style: const TextStyle(
-                                fontSize: 10, color: Colors.grey),
+                            style: const TextStyle(fontSize: 10, color: Colors.grey),
                           ),
                           reservedSize: 28,
                         ),
                       ),
-                      rightTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                      topTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                      bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                     ),
                     borderData: FlBorderData(show: false),
                     extraLinesData: ExtraLinesData(horizontalLines: [
@@ -452,8 +425,7 @@ List<Map<String, dynamic>> getFilteredData() {
                           show: true,
                           alignment: Alignment.topRight,
                           labelResolver: (_) => 'Batas Aman',
-                          style: const TextStyle(
-                              color: Colors.red, fontWeight: FontWeight.bold),
+                          style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ]),
@@ -462,16 +434,16 @@ List<Map<String, dynamic>> getFilteredData() {
                         spots: filteredData
                             .asMap()
                             .entries
-                            .map((e) => FlSpot(
-                                e.key.toDouble(), e.value["value"]))
+                            .map((e) => FlSpot(e.key.toDouble(), e.value["value"]))
                             .toList(),
                         isCurved: true,
                         color: AppColors.primary,
                         barWidth: 4,
                         dotData: FlDotData(show: true),
                         belowBarData: BarAreaData(
-                            show: true,
-                            color: AppColors.primary.withOpacity(0.25)),
+                          show: true,
+                          color: AppColors.primary.withOpacity(0.25),
+                        ),
                       ),
                     ],
                   ),

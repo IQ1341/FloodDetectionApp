@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import 'package:awesome_dialog/awesome_dialog.dart';
 
-
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -34,19 +33,27 @@ class _LoginScreenState extends State<LoginScreen> {
       final userDoc =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
-      if (userDoc.exists && userDoc.data()!.containsKey('nama_sungai')) {
-        final namaSungai = userDoc['nama_sungai'];
+      if (userDoc.exists && userDoc.data()!.containsKey('allowed_sungai')) {
+        final userData = userDoc.data()!;
+        final wilayah = userData['wilayah'] ?? 'Wilayah Tidak Diketahui';
+        final List<dynamic> sungaiList = userData['allowed_sungai'];
 
-        // Langsung pindah halaman tanpa alert
-        Navigator.pushReplacementNamed(context, '/dashboard',
-            arguments: namaSungai);
+        // Navigasi ke halaman pilih sungai
+        Navigator.pushReplacementNamed(
+          context,
+          '/pilih-sungai',
+          arguments: {
+            'wilayah': wilayah,
+            'sungaiList': sungaiList,
+          },
+        );
       } else {
         AwesomeDialog(
           context: context,
           dialogType: DialogType.warning,
           animType: AnimType.leftSlide,
           title: 'Akun Tidak Valid',
-          desc: 'Akun tidak memiliki data sungai.',
+          desc: 'Akun tidak memiliki data sungai yang dapat dipantau.',
           btnOkOnPress: () {},
         ).show();
       }
@@ -64,8 +71,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -77,9 +82,13 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 60),
             const Icon(Icons.lock_outline, size: 80, color: AppColors.primary),
             const SizedBox(height: 24),
-            const Text("Login Akun Alat", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const Text("Login Wilayah", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text("Silakan login dengan akun yang sudah dibuat oleh admin.", style: TextStyle(fontSize: 14, color: Colors.black54), textAlign: TextAlign.center),
+            const Text(
+              "Silakan login dengan akun wilayah yang telah dibuat oleh admin.",
+              style: TextStyle(fontSize: 14, color: Colors.black54),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 32),
 
             TextField(

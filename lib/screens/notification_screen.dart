@@ -1,60 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
-
-class NotificationScreen extends StatefulWidget {
+class NotificationScreen extends StatelessWidget {
   const NotificationScreen({super.key});
 
   @override
-  State<NotificationScreen> createState() => _NotificationScreenState();
-}
-
-class _NotificationScreenState extends State<NotificationScreen> {
-  String? namaSungai;
-  bool isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    getNamaSungai();
-  }
-
-  Future<void> getNamaSungai() async {
-    try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid != null) {
-        final doc =
-            await FirebaseFirestore.instance.collection('users').doc(uid).get();
-        setState(() {
-          namaSungai = doc.data()?['nama_sungai'];
-          isLoading = false;
-        });
-      } else {
-        setState(() {
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      print('Gagal mengambil nama sungai: $e');
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
+    // Ambil namaSungai dari arguments saat navigasi
+    final namaSungai = ModalRoute.of(context)?.settings.arguments as String?;
 
     if (namaSungai == null) {
       return const Scaffold(
-        body: Center(child: Text("Gagal memuat nama sungai.")),
+        body: Center(child: Text("Nama sungai tidak ditemukan.")),
       );
     }
 
@@ -62,14 +20,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: const Text("Notifikasi", style: TextStyle(color: Colors.black)),
+        title: Text("Notifikasi ", style: const TextStyle(color: Colors.black)),
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.black),
         elevation: 0,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection(namaSungai!) // Nama koleksi sesuai nama_sungai
+            .collection(namaSungai)
             .doc("notifikasi")
             .collection("data")
             .orderBy("timestamp", descending: true)
@@ -105,10 +63,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 key: Key(notif['id']),
                 direction: DismissDirection.endToStart,
                 onDismissed: (direction) {
-                  _deleteNotification(notif['id']);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text("${notif['title']} dihapus"),
-                  ));
+                  _deleteNotification(namaSungai, notif['id']);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("${notif['title']} dihapus")),
+                  );
                 },
                 background: Container(
                   color: Colors.red,
@@ -203,12 +161,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
-  Future<void> _deleteNotification(String notifId) async {
-    if (namaSungai == null) return;
-
+  Future<void> _deleteNotification(String namaSungai, String notifId) async {
     try {
       await FirebaseFirestore.instance
-          .collection(namaSungai!)
+          .collection(namaSungai)
           .doc("notifikasi")
           .collection("data")
           .doc(notifId)

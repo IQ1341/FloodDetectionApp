@@ -9,33 +9,29 @@ import 'package:awesome_dialog/awesome_dialog.dart';
 import '../utils/constants.dart';
 
 class LocationScreen extends StatefulWidget {
-  const LocationScreen({super.key});
+  final String namaSungai;
+
+  const LocationScreen({super.key, required this.namaSungai});
 
   @override
   State<LocationScreen> createState() => _LocationScreenState();
 }
 
 class _LocationScreenState extends State<LocationScreen> {
-  String? namaSungai;
   DateTime? startDate;
   DateTime? endDate;
   List<Map<String, dynamic>> history = [];
   LatLng? location;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (namaSungai == null) {
-      namaSungai = ModalRoute.of(context)?.settings.arguments as String?;
-      if (namaSungai != null) {
-        fetchHistory();
-        fetchLocation();
-      }
-    }
+  void initState() {
+    super.initState();
+    fetchHistory();
+    fetchLocation();
   }
 
   void fetchHistory() {
-    final sungaiKey = namaSungai!.toLowerCase().replaceAll(" ", "_");
+    final sungaiKey = widget.namaSungai.toLowerCase().replaceAll(" ", "_");
     FirebaseFirestore.instance
         .collection(sungaiKey)
         .doc('riwayat')
@@ -72,7 +68,7 @@ class _LocationScreenState extends State<LocationScreen> {
   }
 
   void fetchLocation() async {
-    final sungaiKey = namaSungai!.toLowerCase().replaceAll(" ", "_");
+    final sungaiKey = widget.namaSungai.toLowerCase().replaceAll(" ", "_");
     final snapshot = await FirebaseFirestore.instance
         .collection(sungaiKey)
         .doc('lokasi')
@@ -92,16 +88,43 @@ class _LocationScreenState extends State<LocationScreen> {
   }
 
   Future<void> exportPDF() async {
+    if (history.isEmpty) {
+      AwesomeDialog(
+        context: context,
+        dialogType: DialogType.warning,
+        animType: AnimType.bottomSlide,
+        title: 'Gagal',
+        desc: 'Data riwayat masih kosong. Coba lagi setelah data termuat.',
+        btnOkOnPress: () {},
+        btnOkColor: Colors.orange,
+      ).show();
+      return;
+    }
+
+    final filteredHistory = (startDate == null && endDate == null)
+        ? history
+        : history.where((item) {
+            final itemDate = item['waktu'] as DateTime;
+            if (startDate != null && itemDate.isBefore(startDate!)) return false;
+            if (endDate != null && itemDate.isAfter(endDate!)) return false;
+            return true;
+          }).toList();
+
+    if (filteredHistory.isEmpty) {
+      AwesomeDialog(
+        context: context,
+        dialogType: DialogType.info,
+        animType: AnimType.bottomSlide,
+        title: 'Tidak Ada Data',
+        desc: 'Tidak ada data dalam rentang tanggal yang dipilih.',
+        btnOkOnPress: () {},
+        btnOkColor: Colors.blue,
+      ).show();
+      return;
+    }
+
     final pdf = pw.Document();
     const itemsPerPage = 30;
-
-    final filteredHistory = history.where((item) {
-      final itemDate = item['waktu'] as DateTime;
-      if (startDate != null && itemDate.isBefore(startDate!)) return false;
-      if (endDate != null && itemDate.isAfter(endDate!)) return false;
-      return true;
-    }).toList();
-
     final totalPages = (filteredHistory.length / itemsPerPage).ceil();
 
     for (int page = 0; page < totalPages; page++) {
@@ -119,7 +142,7 @@ class _LocationScreenState extends State<LocationScreen> {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                "Riwayat Ketinggian Air - ${namaSungai ?? ''} (Halaman ${page + 1} dari $totalPages)",
+                "Riwayat Ketinggian Air - ${widget.namaSungai} (Halaman ${page + 1} dari $totalPages)",
                 style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
               ),
               pw.SizedBox(height: 16),
@@ -143,9 +166,7 @@ class _LocationScreenState extends State<LocationScreen> {
       );
     }
 
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-    );
+    await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
 
     if (context.mounted) {
       AwesomeDialog(
@@ -176,7 +197,7 @@ class _LocationScreenState extends State<LocationScreen> {
         elevation: 0,
         title: const Text("Lokasi & Riwayat", style: TextStyle(color: Colors.black)),
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.black),
+        // iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: Column(
         children: [
@@ -193,15 +214,12 @@ class _LocationScreenState extends State<LocationScreen> {
                 borderRadius: BorderRadius.circular(20),
                 child: location != null
                     ? GoogleMap(
-                        initialCameraPosition: CameraPosition(
-                          target: location!,
-                          zoom: 16,
-                        ),
+                        initialCameraPosition: CameraPosition(target: location!, zoom: 16),
                         markers: {
                           Marker(
                             markerId: const MarkerId("lokasi"),
                             position: location!,
-                            infoWindow: InfoWindow(title: namaSungai),
+                            infoWindow: InfoWindow(title: widget.namaSungai),
                           )
                         },
                       )
@@ -274,7 +292,8 @@ class _LocationScreenState extends State<LocationScreen> {
                           color: item['color'].withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(item['status'], style: TextStyle(color: item['color'], fontWeight: FontWeight.bold)),
+                        child: Text(item['status'],
+                            style: TextStyle(color: item['color'], fontWeight: FontWeight.bold)),
                       )
                     ],
                   ),

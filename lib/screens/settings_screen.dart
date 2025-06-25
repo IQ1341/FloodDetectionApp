@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/constants.dart';
 import 'package:awesome_dialog/awesome_dialog.dart';
 
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final String namaSungai;
+
+  const SettingsScreen({super.key, required this.namaSungai});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -17,30 +19,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   double threshold = 150;
   double kalibrasi = 0;
   bool isLoading = true;
-  String? namaSungai;
 
   @override
   void initState() {
     super.initState();
-    getUserSungai();
-  }
-
-  Future<void> getUserSungai() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
-    final doc = await FirebaseFirestore.instance.collection("users").doc(uid).get();
-    if (doc.exists && doc.data()!.containsKey("nama_sungai")) {
-      namaSungai = doc["nama_sungai"];
-      await fetchThreshold();
-      await fetchKalibrasi();
-    }
-    if (mounted) setState(() => isLoading = false);
+    fetchKalibrasi().then((_) => fetchThreshold().then((_) {
+          if (mounted) setState(() => isLoading = false);
+        }));
   }
 
   Future<void> fetchKalibrasi() async {
     final db = FirebaseDatabase.instance.ref();
-    final path = '${namaSungai!.toLowerCase().replaceAll(" ", "_")}/kalibrasi/tinggiSensor';
+    final path = '${widget.namaSungai.toLowerCase().replaceAll(" ", "_")}/kalibrasi/tinggiSensor';
 
     final snapshot = await db.child(path).get();
     if (snapshot.exists) {
@@ -52,7 +42,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> fetchThreshold() async {
     final db = FirebaseDatabase.instance.ref();
-    final path = '${namaSungai!.toLowerCase().replaceAll(" ", "_")}/threshold/nilai';
+    final path = '${widget.namaSungai.toLowerCase().replaceAll(" ", "_")}/threshold/nilai';
 
     final snapshot = await db.child(path).get();
     if (snapshot.exists) {
@@ -62,43 +52,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-Future<void> saveKalibrasi() async {
-  if (namaSungai == null) return;
+  Future<void> saveKalibrasi() async {
+    final db = FirebaseDatabase.instance.ref();
+    final path = '${widget.namaSungai.toLowerCase().replaceAll(" ", "_")}/kalibrasi/tinggiSensor';
+    await db.child(path).set(kalibrasi);
 
-  final db = FirebaseDatabase.instance.ref();
-  final path = '${namaSungai!.toLowerCase().replaceAll(" ", "_")}/kalibrasi/tinggiSensor';
-  await db.child(path).set(kalibrasi);
+    AwesomeDialog(
+      context: context,
+      dialogType: DialogType.success,
+      animType: AnimType.bottomSlide,
+      title: 'Kalibrasi Tersimpan',
+      desc: 'Kalibrasi berhasil disimpan!',
+      btnOkOnPress: () {},
+      btnOkColor: Colors.teal,
+    ).show();
+  }
 
-  AwesomeDialog(
-    context: context,
-    dialogType: DialogType.success,
-    animType: AnimType.bottomSlide,
-    title: 'Kalibrasi Tersimpan',
-    desc: 'Kalibrasi berhasil disimpan!',
-    btnOkOnPress: () {},
-    btnOkColor: Colors.teal,
-  ).show();
-}
+  Future<void> saveThreshold() async {
+    final db = FirebaseDatabase.instance.ref();
+    final path = '${widget.namaSungai.toLowerCase().replaceAll(" ", "_")}/threshold/nilai';
+    await db.child(path).set(threshold);
 
-
-Future<void> saveThreshold() async {
-  if (namaSungai == null) return;
-
-  final db = FirebaseDatabase.instance.ref();
-  final path = '${namaSungai!.toLowerCase().replaceAll(" ", "_")}/threshold/nilai';
-  await db.child(path).set(threshold);
-
-  AwesomeDialog(
-    context: context,
-    dialogType: DialogType.success,
-    animType: AnimType.rightSlide,
-    title: 'Threshold Disimpan',
-    desc: 'Ambang batas berhasil disimpan!',
-    btnOkOnPress: () {},
-    btnOkColor: AppColors.primary,
-  ).show();
-}
-
+    AwesomeDialog(
+      context: context,
+      dialogType: DialogType.success,
+      animType: AnimType.rightSlide,
+      title: 'Threshold Disimpan',
+      desc: 'Ambang batas berhasil disimpan!',
+      btnOkOnPress: () {},
+      btnOkColor: AppColors.primary,
+    ).show();
+  }
 
   void logout() async {
     await FirebaseAuth.instance.signOut();
@@ -122,7 +106,7 @@ Future<void> saveThreshold() async {
         elevation: 0,
         title: const Text("Pengaturan", style: TextStyle(color: Colors.black)),
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.black),
+        // iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -225,7 +209,9 @@ Future<void> saveThreshold() async {
 
   Widget _buildLogoutButton() {
     return ElevatedButton.icon(
-      onPressed: logout,
+      onPressed: () {
+      Navigator.pop(context); // Kembali ke dashboard sebelumnya
+    },
       icon: const Icon(Icons.logout, color: Colors.white),
       label: const Text("Keluar", style: TextStyle(color: Colors.white)),
       style: ElevatedButton.styleFrom(
