@@ -87,50 +87,51 @@ class NotificationScreen extends StatelessWidget {
                     border: Border.all(color: notif['color'].withOpacity(0.25)),
                   ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: notif['color'].withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.notifications, color: notif['color'], size: 24),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    notif['title'],
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: notif['color'],
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  notif['time'],
-                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              notif['message'],
-                              style: const TextStyle(color: Colors.black87, fontSize: 14),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+  crossAxisAlignment: CrossAxisAlignment.center,
+  children: [
+    Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: notif['color'].withOpacity(0.1),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(Icons.notifications, color: notif['color'], size: 24),
+    ),
+    const SizedBox(width: 12),
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  notif['title'],
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: notif['color'],
+                    fontSize: 15,
                   ),
+                ),
+              ),
+              Text(
+                notif['time'],
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            notif['message'],
+            style: const TextStyle(color: Colors.black87, fontSize: 14),
+          ),
+        ],
+      ),
+    ),
+  ],
+),
+
                 ),
               );
             },
