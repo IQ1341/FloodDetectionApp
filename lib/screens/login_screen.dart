@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const Text("Login Wilayah", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text(
-              "Silakan login dengan akun wilayah yang telah dibuat oleh admin.",
+              "Silakan login dengan akun yang telah dibuat",
               style: TextStyle(fontSize: 14, color: Colors.black54),
               textAlign: TextAlign.center,
             ),
