@@ -95,7 +95,12 @@ class NotificationScreen extends StatelessWidget {
         color: notif['color'].withOpacity(0.1),
         shape: BoxShape.circle,
       ),
-      child: Icon(Icons.notifications, color: notif['color'], size: 24),
+      child: Icon(
+  notif['level'] == "DARURAT" ? Icons.warning : Icons.notifications,
+  color: notif['color'],
+  size: 24,
+),
+
     ),
     const SizedBox(width: 12),
     Expanded(
@@ -151,16 +156,18 @@ class NotificationScreen extends StatelessWidget {
     return "${date.day} ${monthNames[date.month - 1]}, ${date.year}, ${date.hour}:${date.minute}";
   }
 
-  Color getNotificationColor(String level) {
-    switch (level) {
-      case "BAHAYA":
-        return Colors.red;
-      case "WASPADA":
-        return Colors.orange;
-      default:
-        return const Color(0xFF00C2FF);
-    }
+Color getNotificationColor(String level) {
+  switch (level) {
+    case "BAHAYA":
+    case "DARURAT":
+      return Colors.red;
+    case "WASPADA":
+      return Colors.orange;
+    default:
+      return const Color(0xFF00C2FF);
   }
+}
+
 
   Future<void> _deleteNotification(String namaSungai, String notifId) async {
     try {
