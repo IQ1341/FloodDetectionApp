@@ -5,9 +5,10 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/register_screen.dart'; // ✅ Tambah import register
 import 'screens/main_screen.dart';
 import 'screens/sungai_screen.dart';
-import 'screens/notification_screen.dart'; // ✅ Tambahkan ini
+import 'screens/notification_screen.dart';
 
 import 'utils/constants.dart';
 import 'utils/notification_service.dart';
@@ -55,6 +56,7 @@ class _MyAppState extends State<MyApp> {
       routes: {
         '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(), // ✅ Tambah route
         '/pilih-sungai': (context) {
           final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
           return SungaiScreen(arguments: args);
@@ -64,8 +66,7 @@ class _MyAppState extends State<MyApp> {
           return MainScreen(namaSungai: sungai);
         },
         '/notifikasi': (context) {
-          // final sungai = ModalRoute.of(context)!.settings.arguments as String;
-          return const NotificationScreen(); // Argument diakses lewat ModalRoute di dalam screen
+          return const NotificationScreen(); // Argumen diambil di dalam screen
         },
       },
     );

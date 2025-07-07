@@ -33,12 +33,12 @@ class _LoginScreenState extends State<LoginScreen> {
       final userDoc =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
-      if (userDoc.exists && userDoc.data()!.containsKey('allowed_sungai')) {
+      if (userDoc.exists) {
         final userData = userDoc.data()!;
         final wilayah = userData['wilayah'] ?? 'Wilayah Tidak Diketahui';
-        final List<dynamic> sungaiList = userData['allowed_sungai'];
+        final List<dynamic> sungaiList = userData['allowed_sungai'] ?? [];
 
-        // Navigasi ke halaman pilih sungai
+        // Navigasi ke halaman pilih sungai (selalu dijalankan)
         Navigator.pushReplacementNamed(
           context,
           '/pilih-sungai',
@@ -52,8 +52,8 @@ class _LoginScreenState extends State<LoginScreen> {
           context: context,
           dialogType: DialogType.warning,
           animType: AnimType.leftSlide,
-          title: 'Akun Tidak Valid',
-          desc: 'Akun tidak memiliki data sungai yang dapat dipantau.',
+          title: 'Data Tidak Ditemukan',
+          desc: 'Data pengguna tidak tersedia di Firestore.',
           btnOkOnPress: () {},
         ).show();
       }
@@ -132,6 +132,25 @@ class _LoginScreenState extends State<LoginScreen> {
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text('Login', style: TextStyle(fontSize: 16, color: Colors.white)),
               ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Link ke halaman register
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text("Belum punya akun?", style: TextStyle(color: Colors.black54)),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/register');
+                  },
+                  child: const Text(
+                    "Daftar di sini",
+                    style: TextStyle(color: Color(0xFF00C2FF), fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
